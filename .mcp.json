@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "datagen": {
+      "type": "http",
+      "url": "https://mcp.datagen.dev/mcp",
+      "headers": {
+        "X-API-Key": "${DATAGEN_API_KEY}"
+      }
+    }
+  }
+}

@@ -116,9 +116,9 @@ print(json.dumps(match, indent=2))
 
 Replace `TEMPLATE_ID` with the user's requested template. If not found or not stable, stop.
 
-### 4. Fetch the full registry for install details
+### 4. Fetch manifest and discover files to download
 
-Now fetch the template's manifest for detailed install info:
+Fetch the template's `manifest.json` -- it contains a `files` array listing every file in the template:
 
 ```bash
 REPO_BASE="https://raw.githubusercontent.com/datagendev/datagen-agent-templates/main"
@@ -127,56 +127,61 @@ TEMPLATE_PATH="TEMPLATE_PATH_FROM_INDEX"
 curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/manifest.json" -o /tmp/datagen-manifest.json
 ```
 
-### 5. Download template files
+### 5. Download all template files from manifest
 
-Download all template files from GitHub:
+Read the `files` array from the manifest and download each file. This is fully dynamic -- no hardcoded file lists:
 
 ```bash
 REPO_BASE="https://raw.githubusercontent.com/datagendev/datagen-agent-templates/main"
 TEMPLATE_PATH="TEMPLATE_PATH_FROM_INDEX"
 TEMPLATE_ID="TEMPLATE_ID"
 
-# Create local directories
-mkdir -p $TEMPLATE_ID/{scripts,context,learnings,tmp}
-mkdir -p .claude/agents
+# Create directories and download all files listed in manifest
+python3 -c "
+import json, os, urllib.request
 
-# Download agent definition
-curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/agent.md" -o ".claude/agents/$TEMPLATE_ID.md"
+with open('/tmp/datagen-manifest.json') as f:
+    manifest = json.load(f)
 
-# Download manifest and docs
-curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/manifest.json" -o "$TEMPLATE_ID/manifest.json"
-curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/README.md" -o "$TEMPLATE_ID/README.md"
-curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/mcps.md" -o "$TEMPLATE_ID/mcps.md"
+repo_base = '$REPO_BASE'
+template_path = '$TEMPLATE_PATH'
+template_id = '$TEMPLATE_ID'
 
-# Download scripts (read from manifest)
-for script in $(python3 -c "
-import json, urllib.request
-manifest = json.loads(urllib.request.urlopen('$REPO_BASE/$TEMPLATE_PATH/manifest.json').read())
-# List scripts based on the template -- hardcoded per template for reliability
-import os
-scripts_url = '$REPO_BASE/$TEMPLATE_PATH/scripts/'
-# Known scripts for each template
-known = {
-    'linkedin-engagement': ['preflight.py', 'db.py', 'check_profiles.py', 'pull_engagements.py', 'dedup_contacts.py', 'enrich_batch.py', 'export.py'],
-}
-tid = '$TEMPLATE_ID'
-for s in known.get(tid, []):
-    print(s)
-"); do
-    curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/scripts/$script" -o "$TEMPLATE_ID/scripts/$script" 2>/dev/null
-done
+# agent.md goes to .claude/agents/, everything else under TEMPLATE_ID/
+os.makedirs(f'.claude/agents', exist_ok=True)
+os.makedirs(f'{template_id}/tmp', exist_ok=True)
 
-# Download context files
-curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/context/data-model.md" -o "$TEMPLATE_ID/context/data-model.md" 2>/dev/null
+for filepath in manifest.get('files', []):
+    remote_url = f'{repo_base}/{template_path}/{filepath}'
 
-# Download learnings starter
-curl -fsSL "$REPO_BASE/$TEMPLATE_PATH/learnings/common_failures_and_fix.md" -o "$TEMPLATE_ID/learnings/common_failures_and_fix.md" 2>/dev/null
+    if filepath == 'agent.md':
+        local_path = f'.claude/agents/{template_id}.md'
+    else:
+        local_path = f'{template_id}/{filepath}'
+
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+
+    try:
+        urllib.request.urlretrieve(remote_url, local_path)
+        print(f'  OK  {local_path}')
+    except Exception as e:
+        print(f'  SKIP {filepath} ({e})')
+
+# Also download manifest.json itself
+urllib.request.urlretrieve(
+    f'{repo_base}/{template_path}/manifest.json',
+    f'{template_id}/manifest.json'
+)
+print(f'  OK  {template_id}/manifest.json')
 
 # Create tmp/.gitkeep
-touch "$TEMPLATE_ID/tmp/.gitkeep"
+open(f'{template_id}/tmp/.gitkeep', 'w').close()
+print(f'  OK  {template_id}/tmp/.gitkeep')
+print(f'\nDownloaded {len(manifest.get(\"files\", []))} files.')
+"
 ```
 
-Replace `TEMPLATE_ID` and `TEMPLATE_PATH_FROM_INDEX` with actual values.
+Replace `TEMPLATE_ID` and `TEMPLATE_PATH_FROM_INDEX` with actual values from step 3.
 
 ### 6. Update agent.md paths
 

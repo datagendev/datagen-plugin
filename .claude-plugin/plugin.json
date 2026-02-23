@@ -7,7 +7,9 @@
   "repository": "https://github.com/datagen-dev/datagen-plugin",
   "skills": [
     "./skills/setup",
-    "./skills/add-tools",
+    "./skills/add-mcps",
+    "./skills/create-custom-tool",
+    "./skills/code-mode",
     "./skills/deploy-agent",
     "./skills/manage-agents",
     "./skills/run-tool"

@@ -12,6 +12,6 @@
     "./skills/code-mode",
     "./skills/deploy-agent",
     "./skills/manage-agents",
-    "./skills/run-tool"
+    "./skills/fetch-agent"
   ]
 }

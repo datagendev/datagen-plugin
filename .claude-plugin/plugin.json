@@ -2,7 +2,14 @@
   "name": "datagen",
   "version": "1.0.0",
   "description": "DataGen - 50+ MCP tools for AI agent workflows. Connect services, execute tools, deploy agents.",
-  "author": "DataGen",
+  "author": { "name": "DataGen" },
   "homepage": "https://datagen.dev",
-  "repository": "https://github.com/datagen-dev/datagen-plugin"
+  "repository": "https://github.com/datagen-dev/datagen-plugin",
+  "skills": [
+    "./skills/setup",
+    "./skills/add-tools",
+    "./skills/deploy-agent",
+    "./skills/manage-agents",
+    "./skills/run-tool"
+  ]
 }

@@ -1,9 +1,26 @@
 {
-  "hooks": [
-    {
-      "event": "SessionStart",
-      "type": "prompt",
-      "prompt": "Check if the DataGen MCP server is configured and the DATAGEN_API_KEY environment variable is set. If not configured, briefly mention: 'Run /datagen:setup to connect DataGen tools.' Keep it to one line, do not be pushy."
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if the DataGen MCP server is configured and the DATAGEN_API_KEY environment variable is set. If not configured, briefly mention: 'Run /datagen:setup to connect DataGen tools.' Keep it to one line, do not be pushy."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/validate-agent-frontmatter.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }

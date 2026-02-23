@@ -86,8 +86,315 @@ If it works, confirm setup is complete and suggest next steps:
 - `/datagen:deploy-agent` to create and deploy an agent
 - Try asking about any tool: "search for CRM tools"
 
+### 7. Install DataGen CLI
+
+Check if the CLI is already installed:
+
+```bash
+which datagen
+```
+
+If not found, install based on platform:
+
+**macOS/Linux:**
+```bash
+curl -fsSL https://cli.datagen.dev/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://cli.datagen.dev/install.ps1 | iex
+```
+
+After installation, verify it works:
+```bash
+datagen --help
+```
+
+If `which datagen` already succeeds, skip this step and tell the user the CLI is already installed.
+
+### 8. Install SDK
+
+Detect the user's project type by checking for existing files:
+
+```bash
+ls requirements.txt pyproject.toml 2>/dev/null; ls package.json 2>/dev/null
+```
+
+Based on what exists:
+- If `requirements.txt`, `pyproject.toml`, or `.py` files exist --> suggest **Python SDK** (`datagen-python-sdk`, requires Python >= 3.10, depends on `requests>=2.31.0`)
+- If `package.json` or `.ts`/`.js` files exist --> suggest **TypeScript SDK** (`@datagen-dev/typescript-sdk`, requires Node >= 18, zero runtime dependencies, uses native fetch)
+- If both detected --> ask the user which they want (or both)
+- If neither detected --> ask the user which language they're using
+
+**Python install:**
+```bash
+pip install datagen-python-sdk
+```
+
+**TypeScript install** (detect package manager from lockfile):
+```bash
+# If yarn.lock exists:
+yarn add @datagen-dev/typescript-sdk
+# If pnpm-lock.yaml exists:
+pnpm add @datagen-dev/typescript-sdk
+# Otherwise (default to npm):
+npm install @datagen-dev/typescript-sdk
+```
+
+Ask the user if they'd like to skip SDK installation if they only plan to use MCP tools.
+
+### 9. Create `.datagen/` prompt context folder
+
+Create a `.datagen/` directory in the project root with context files so Claude Code has DataGen knowledge in every session.
+
+```bash
+mkdir -p .datagen
+```
+
+**Create `.datagen/README.md`:**
+
+```markdown
+# DataGen Context
+
+This folder provides DataGen context to Claude Code. These files are referenced from CLAUDE.md so Claude always knows how to use DataGen tools and SDKs in this project.
+
+## Files
+
+- **tools.md** -- MCP tool discovery and execution reference
+- **cli-commands.md** -- DataGen CLI command reference
+- **skills.md** -- Available /datagen:* slash commands
+- **sdk-usage.md** -- Python & TypeScript SDK quickstart
+```
+
+**Create `.datagen/tools.md`:**
+
+```markdown
+# DataGen MCP Tools
+
+## Core Tools
+
+### searchTools
+Find tools by keyword. Returns matching tool names, descriptions, and categories.
+- Parameter: `query` (string) -- search term
+- Example: search for "email" to find email-sending tools
+
+### getToolDetails
+Get full parameter schema for a specific tool.
+- Parameter: `toolId` (string) -- the tool ID from searchTools results
+- Returns: parameter names, types, descriptions, and whether they're required
+
+### executeTool
+Run a tool with parameters.
+- Parameters: `toolId` (string), `parameters` (object) -- key-value pairs matching the tool's schema
+- Returns: tool execution result
+
+### executeCode
+Execute Python code with MCP tool access. Use for complex multi-step workflows.
+- Parameter: `code` (string) -- Python code to execute
+- Tools are available as functions within the execution environment
+
+### addRemoteMcpServer
+Connect an external MCP server to expand available tools.
+- Parameter: `url` (string) -- the MCP server URL
+- Returns: OAuth URL if authentication is required
+
+### checkRemoteMcpOauthStatus
+Check if an OAuth flow for a remote MCP server has completed.
+- Parameter: `serverId` (string) -- the server ID from addRemoteMcpServer
+
+### submitCustomToolRun / checkRunStatus
+Submit and monitor custom tool executions for long-running tasks.
+
+## Tool Categories
+
+- **Web/Search** -- web scraping, search engines, URL fetching
+- **Communication** -- email (Gmail), messaging (Slack), notifications
+- **CRM/Sales** -- HubSpot, Salesforce, lead enrichment
+- **Development** -- GitHub, Linear, code execution
+- **Data** -- spreadsheets, databases, file processing
+- **Custom** -- user-defined tools and workflows
+```
+
+**Create `.datagen/cli-commands.md`:**
+
+```markdown
+# DataGen CLI Commands
+
+## Authentication
+- `datagen login` -- save API key (opens browser for OAuth)
+- `datagen mcp` -- configure DataGen MCP in local tools (Claude Code, Codex, Gemini)
+
+## GitHub Integration
+- `datagen github connect` -- install GitHub App and connect repos
+- `datagen github status` -- check GitHub connection status
+- `datagen github repos` -- list available repositories
+- `datagen github connected` -- list connected repositories
+- `datagen github connect-repo <owner/repo>` -- connect a specific repository
+- `datagen github sync <repo-id>` -- re-sync agents from a repository
+
+## Agent Management
+- `datagen agents list` -- list discovered agents (flags: `--repo`, `--deployed`)
+- `datagen agents show <agent-id>` -- show agent details and recent executions
+- `datagen agents deploy <agent-id>` -- deploy an agent (creates webhook endpoint)
+- `datagen agents undeploy <agent-id>` -- remove an agent deployment
+- `datagen agents run <agent-id>` -- trigger execution (flag: `--payload '{...}'`)
+- `datagen agents logs <agent-id>` -- view execution history (flag: `--limit N`)
+- `datagen agents config <agent-id>` -- view/update config (flags: `--set-prompt`, `--secrets`, `--pr-mode`, `--add-recipient`, `--notify-success`, `--notify-failure`)
+- `datagen agents schedule <agent-id>` -- manage cron schedules (flags: `--cron`, `--timezone`, `--name`, `--pause`, `--resume`, `--delete`)
+
+## Secrets
+- `datagen secrets list` -- list stored secrets (masked)
+- `datagen secrets set KEY=value` -- create or update a secret
+```
+
+**Create `.datagen/skills.md`:**
+
+```markdown
+# DataGen Skills (Slash Commands)
+
+Use these in Claude Code to interact with DataGen:
+
+- `/datagen:setup` -- authenticate, install CLI/SDK, and configure MCP tools
+- `/datagen:add-tools` -- connect external services (Gmail, Slack, Linear, etc.)
+- `/datagen:deploy-agent` -- create agent definition and deploy as webhook/scheduled automation
+- `/datagen:manage-agents` -- list, monitor, configure, and manage deployed agents
+- `/datagen:run-tool` -- quickly execute a DataGen tool by name
+```
+
+**Create `.datagen/sdk-usage.md`:**
+
+```markdown
+# DataGen SDK Usage
+
+## Python SDK
+
+Requires Python >= 3.10 and `requests>=2.31.0`.
+
+```bash
+pip install datagen-python-sdk
+```
+
+```python
+from datagen_sdk import DatagenClient
+
+client = DatagenClient(api_key="your-api-key")  # or uses DATAGEN_API_KEY env var
+
+# Search for tools
+tools = client.search_tools("email")
+
+# Get tool details
+details = client.get_tool_details(tool_id="tool-123")
+
+# Execute a tool
+result = client.execute_tool(
+    tool_id="tool-123",
+    parameters={"to": "user@example.com", "subject": "Hello"}
+)
+```
+
+## TypeScript SDK
+
+Requires Node >= 18. Zero runtime dependencies (uses native fetch).
+
+```bash
+npm install @datagen-dev/typescript-sdk
+```
+
+```typescript
+import { DatagenClient } from '@datagen-dev/typescript-sdk';
+
+const client = new DatagenClient({ apiKey: 'your-api-key' }); // or uses DATAGEN_API_KEY env var
+
+// Search for tools
+const tools = await client.searchTools('email');
+
+// Get tool details
+const details = await client.getToolDetails('tool-123');
+
+// Execute a tool
+const result = await client.executeTool('tool-123', {
+  to: 'user@example.com',
+  subject: 'Hello',
+});
+```
+
+## Configuration
+
+Both SDKs read `DATAGEN_API_KEY` from the environment if no key is passed explicitly.
+
+## Error Handling
+
+Both SDKs throw typed errors:
+- **AuthenticationError** -- invalid or missing API key
+- **NotFoundError** -- tool or resource not found
+- **ValidationError** -- invalid parameters
+- **RateLimitError** -- too many requests
+- **APIError** -- general server error
+```
+
+**Then append a DataGen section to the project's CLAUDE.md.**
+
+Check if `CLAUDE.md` exists in the project root:
+
+```bash
+test -f CLAUDE.md && echo "exists" || echo "missing"
+```
+
+If it exists, append the DataGen section (only if it doesn't already contain a `## DataGen` section):
+
+```bash
+grep -q "## DataGen" CLAUDE.md || cat >> CLAUDE.md << 'DATAGEN_EOF'
+
+## DataGen
+
+This project uses [DataGen](https://datagen.dev) for AI agent tools and workflows.
+See `.datagen/` for detailed context files:
+- [Tools](.datagen/tools.md) -- MCP tool discovery and execution
+- [CLI](.datagen/cli-commands.md) -- DataGen CLI commands
+- [Skills](.datagen/skills.md) -- Available /datagen:* slash commands
+- [SDK](.datagen/sdk-usage.md) -- Python & TypeScript SDK usage
+DATAGEN_EOF
+```
+
+If it does not exist, create it:
+
+```bash
+cat > CLAUDE.md << 'DATAGEN_EOF'
+# CLAUDE.md
+
+## DataGen
+
+This project uses [DataGen](https://datagen.dev) for AI agent tools and workflows.
+See `.datagen/` for detailed context files:
+- [Tools](.datagen/tools.md) -- MCP tool discovery and execution
+- [CLI](.datagen/cli-commands.md) -- DataGen CLI commands
+- [Skills](.datagen/skills.md) -- Available /datagen:* slash commands
+- [SDK](.datagen/sdk-usage.md) -- Python & TypeScript SDK usage
+DATAGEN_EOF
+```
+
+Tell the user: "Created `.datagen/` with DataGen context files and added a reference to your CLAUDE.md. Claude Code will now have DataGen knowledge in every session."
+
+### 10. Setup complete
+
+Summarize everything that was configured:
+- Authentication (API key)
+- MCP server connection
+- CLI installation status
+- SDK installation status
+- `.datagen/` context folder
+
+Suggest next steps:
+- `/datagen:add-tools` to connect services like Gmail, Slack, Linear
+- `/datagen:deploy-agent` to create and deploy an agent
+- Try asking about any tool: "search for CRM tools"
+
 ### Error handling
 
 - If browser fails to open: provide the URL for manual copy-paste
 - If polling times out: suggest the user try again with `/datagen:setup`
 - If MCP add fails: show the manual JSON config for `.claude/settings.json`
+- If CLI install fails: provide the manual download link from https://github.com/datagendev/datagen-cli/releases
+- If SDK install fails: suggest the user install manually and check their Python/Node version
+- If `.datagen/` creation fails: check directory permissions and retry

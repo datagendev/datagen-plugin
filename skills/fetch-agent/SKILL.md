@@ -72,6 +72,12 @@ for agent in data['agents']:
         for mcp in optional:
             print(f\"    Optional MCP:  {mcp['name']} -- {mcp['purpose']}\")
 
+    # Secrets (API keys)
+    secrets = agent.get('secrets', [])
+    if secrets:
+        names = [s['name'] for s in secrets]
+        print(f\"    Secrets:       {', '.join(names)}\")
+
     print(f\"    Tags: {', '.join(agent.get('tags', []))}\")
     print()
 
@@ -214,7 +220,7 @@ curl -fsSL "$REPO_BASE/_shared/skills/datagen-setup/SKILL.md" -o ".claude/skills
 2. Suggest connecting via `/datagen:add-tools` or visiting https://app.datagen.dev/tools
 3. For database MCPs with alternatives (Neon | Supabase), explain that either works -- the agent auto-detects which is connected
 
-Check environment variables:
+Check secrets (API keys and credentials):
 
 ```bash
 python3 -c "
@@ -222,13 +228,17 @@ import json, os
 with open('/tmp/datagen-agents.json') as f:
     data = json.load(f)
 agent = next(a for a in data['agents'] if a['id'] == 'TEMPLATE_ID')
-missing = [v for v in agent.get('env_vars', []) if not os.environ.get(v)]
+secrets = agent.get('secrets', [])
+missing = []
+for s in secrets:
+    if s.get('required') and not os.environ.get(s['name']):
+        missing.append(s)
 if missing:
-    print('Missing required environment variables:')
-    for v in missing:
-        print(f'  export {v}=<value>')
+    print('Missing required secrets:')
+    for s in missing:
+        print(f\"  export {s['name']}=<value>  # {s['description']}\")
 else:
-    print('All required environment variables are set.')
+    print('All required secrets are set.')
 "
 ```
 

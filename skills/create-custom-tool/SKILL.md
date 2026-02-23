@@ -13,6 +13,19 @@ Create a custom DataGen tool with your own logic, then test it using `executeCod
 - User says "create tool", "custom tool", "build a tool"
 - User has a specific automation they want to package as a reusable tool
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step below so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+Tasks to create:
+1. Check DataGen is configured
+2. Understand tool requirements
+3. Get custom tool details
+4. Create the custom tool
+5. Test with executeCode
+6. Iterate and fix issues
+7. Submit a test run
+
 ## Steps
 
 ### 1. Check DataGen is configured

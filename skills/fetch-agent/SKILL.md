@@ -19,6 +19,24 @@ Browse and install pre-built agent templates that work with DataGen.
 - No argument: list all available templates from the agent index
 - Template ID (e.g., `linkedin-engagement`): fetch and install that specific template
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step below so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+If the user provided a template ID, create these tasks:
+1. Fetch agent index
+2. Display agent catalog
+3. Validate template is installable
+4. Fetch manifest and download files
+5. Update agent paths
+6. Check prerequisites (secrets + MCPs)
+7. Install Python dependencies
+8. Show post-install guide
+
+If no template ID was given (browse mode), only create:
+1. Fetch agent index
+2. Display agent catalog
+
 ## Steps
 
 ### 1. Fetch the agent index

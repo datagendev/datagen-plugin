@@ -13,6 +13,16 @@ View, monitor, and manage your deployed DataGen agents.
 - User wants to check agent logs or status
 - User wants to update, pause, or undeploy an agent
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step below so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+Tasks to create:
+1. Check prerequisites
+2. List deployed agents
+3. Execute requested action
+4. Show status summary
+
 ## Steps
 
 ### 1. Check prerequisites

@@ -20,6 +20,17 @@ Write and run local Python/TypeScript scripts using the DataGen SDK instead of m
 - **Local scripts with SDK** -- use for ALL general workflows. Write a `.py` file and run it locally.
 - **`executeCode` MCP tool** -- ONLY for testing custom tools created via `/datagen:create-custom-tool`. Do NOT use `executeCode` for general workflows.
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+Tasks to create:
+1. Check prerequisites
+2. Discover tools via MCP
+3. Write the script
+4. Run the script
+5. Report results
+
 ## Steps
 
 ### 1. Check prerequisites

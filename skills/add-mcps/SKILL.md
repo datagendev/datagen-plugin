@@ -13,6 +13,17 @@ Connect external MCP servers and services to expand your DataGen toolkit.
 - User says "add mcps", "connect", or mentions a specific service
 - After initial setup, as a natural next step
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+Tasks to create:
+1. Check DataGen is configured
+2. Identify service to connect
+3. Search and install MCP server
+4. Handle OAuth (if needed)
+5. Verify connection and show tools
+
 ## Steps
 
 ### 1. Check DataGen is configured

@@ -13,6 +13,24 @@ Develop an agent definition and deploy it as a webhook-triggered or scheduled au
 - User mentions automation, scheduling, webhooks, or deploying
 - User wants to run an agent on a schedule or trigger
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step below so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+For deploying an existing agent, create these tasks:
+1. Check prerequisites (CLI + API key)
+2. Read agent file and scan dependencies
+3. Validate Claude Code credentials
+4. Push required secrets
+5. Connect GitHub repo
+6. Deploy the agent
+7. Set up trigger
+8. Test the deployment
+
+For creating + deploying a new agent, also add before step 5:
+- Understand agent requirements
+- Create agent definition
+
 ## Steps
 
 ### 1. Check prerequisites

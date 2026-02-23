@@ -13,6 +13,19 @@ Connect DataGen to Claude Code with zero-copy-paste authentication.
 - User wants to configure DataGen tools
 - SessionStart hook detects DataGen is not configured
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each major step so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+Tasks to create:
+1. Check existing configuration
+2. Authenticate with DataGen (skip if already configured)
+3. Verify MCP connection
+4. Install DataGen CLI
+5. Install SDK (Python or TypeScript)
+6. Create .datagen/ context folder
+7. Setup complete -- show summary
+
 ## Important: Always run ALL steps
 
 You MUST execute every step below, even if authentication is already configured. Steps 1-6 handle auth (skippable if working), but steps 7-9 MUST always be checked. Do NOT stop early after verifying auth -- always continue through CLI, SDK, and context folder checks.

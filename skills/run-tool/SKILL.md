@@ -12,6 +12,17 @@ Execute a DataGen tool directly with specified parameters.
 - User wants to run a specific tool quickly
 - User says "run tool", "execute", or names a specific DataGen tool
 
+## Before starting
+
+**Create a task list first.** Use `TaskCreate` to create a task for each step so the user can track progress. Mark each task `in_progress` when you start it and `completed` when done.
+
+Tasks to create:
+1. Check DataGen is configured
+2. Identify the tool
+3. Get parameters
+4. Execute tool
+5. Show results
+
 ## Steps
 
 ### 1. Check DataGen is configured

@@ -1,0 +1,17 @@
+{
+  "name": "datagen-marketplace",
+  "owner": {
+    "name": "DataGen"
+  },
+  "metadata": {
+    "description": "DataGen plugin for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "datagen",
+      "source": "./",
+      "description": "DataGen - 50+ MCP tools for AI agent workflows. Connect services, execute tools, deploy agents.",
+      "version": "1.0.0"
+    }
+  ]
+}

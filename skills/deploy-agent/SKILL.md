@@ -103,7 +103,16 @@ Deployed agents need a Claude Code credential to run. Check what's already store
 datagen secrets list 2>&1 | grep -iE "ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN"
 ```
 
-**If NEITHER `ANTHROPIC_API_KEY` nor `CLAUDE_CODE_OAUTH_TOKEN` is found**, ask the user which approach they want:
+**If BOTH `ANTHROPIC_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` are found**, ask the user which one the agent should use (use `AskUserQuestion`):
+
+- **Anthropic API Key** -- uses API credits from console.anthropic.com
+- **Claude Code OAuth Token** -- uses their existing Claude Pro/Team/Enterprise subscription
+
+Then move on.
+
+**If only ONE is found**, confirm with the user that the agent should use the existing credential and move on.
+
+**If NEITHER is found**, ask the user which approach they want:
 
 **Option A: Use an Anthropic API key**
 - The user provides their own `ANTHROPIC_API_KEY` from console.anthropic.com
@@ -125,8 +134,6 @@ datagen secrets list 2>&1 | grep -iE "ANTHROPIC_API_KEY|CLAUDE_CODE_OAUTH_TOKEN"
   ```
   (This reads from the local environment variable set by `claude setup-token`.)
 - **Important**: `claude setup-token` is interactive and must be run in a regular terminal, not inside Claude Code.
-
-**If one or both are already found**, confirm with the user which one the agent should use and move on.
 
 ### 4. Push all required secrets
 

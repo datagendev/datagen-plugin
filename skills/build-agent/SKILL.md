@@ -367,6 +367,11 @@ Point the user to `/datagen:deploy-agent` for:
 5. **The real product is encoded expertise** -- context files are the differentiator
 6. **Compose skills inside agents** -- break complex capabilities into reusable skills
 
+## Next steps
+
+After the agent is built and tested, suggest:
+- `/datagen:deploy-agent` to deploy your agent as a webhook or scheduled automation
+
 ## Error handling
 
 - If SDK is not installed: suggest `pip install datagen-python-sdk` or `/datagen:setup`

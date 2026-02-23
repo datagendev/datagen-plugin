@@ -98,8 +98,9 @@ Test the connection by calling the DataGen MCP `searchTools` tool with query "em
 
 If it works, confirm setup is complete and suggest next steps:
 - `/datagen:add-mcps` to connect services like Gmail, Slack, Linear
-- `/datagen:deploy-agent` to create and deploy an agent
-- Try asking about any tool: "search for CRM tools"
+- `/datagen:build-agent` to build an agent step by step
+- `/datagen:fetch-agent` to get pre-built agents
+- `/datagen:deploy-agent` to deploy your existing agent, skill, or command
 
 ### 7. Install DataGen CLI
 
@@ -435,8 +436,9 @@ Print a status summary table showing the result of EVERY check:
 
 Then suggest next steps:
 - `/datagen:add-mcps` to connect services like Gmail, Slack, Linear
-- `/datagen:deploy-agent` to create and deploy an agent
-- Try asking about any tool: "search for CRM tools"
+- `/datagen:build-agent` to build an agent step by step
+- `/datagen:fetch-agent` to get pre-built agents
+- `/datagen:deploy-agent` to deploy your existing agent, skill, or command
 
 ### Error handling
 

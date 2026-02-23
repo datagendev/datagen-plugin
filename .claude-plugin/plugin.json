@@ -10,6 +10,7 @@
     "./skills/add-mcps",
     "./skills/create-custom-tool",
     "./skills/code-mode",
+    "./skills/build-agent",
     "./skills/deploy-agent",
     "./skills/manage-agents",
     "./skills/fetch-agent"

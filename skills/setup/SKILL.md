@@ -231,7 +231,8 @@ Use these in Claude Code to interact with DataGen:
 - `/datagen:setup` -- authenticate, install CLI/SDK, and configure MCP tools
 - `/datagen:add-mcps` -- connect external services (Gmail, Slack, Linear, etc.)
 - `/datagen:create-custom-tool` -- create a custom tool with your own logic
-- `/datagen:deploy-agent` -- create agent definition and deploy as webhook/scheduled automation
+- `/datagen:build-agent` -- build a new agent from scratch (interview, prototype, explore, model data, write definition)
+- `/datagen:deploy-agent` -- deploy an existing agent as webhook/scheduled automation
 - `/datagen:manage-agents` -- list, monitor, configure, and manage deployed agents
 - `/datagen:code-mode` -- write local Python scripts using the SDK for bulk/multi-step workflows
 ```

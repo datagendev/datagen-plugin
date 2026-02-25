@@ -171,9 +171,9 @@ repo_base = '$REPO_BASE'
 template_path = '$TEMPLATE_PATH'
 template_id = '$TEMPLATE_ID'
 
-# agent.md goes to .claude/agents/, everything else under TEMPLATE_ID/
+# agent.md goes to .claude/agents/, everything else under .datagen/TEMPLATE_ID/
 os.makedirs(f'.claude/agents', exist_ok=True)
-os.makedirs(f'{template_id}/tmp', exist_ok=True)
+os.makedirs(f'.datagen/{template_id}/tmp', exist_ok=True)
 
 for filepath in manifest.get('files', []):
     remote_url = f'{repo_base}/{template_path}/{filepath}'
@@ -181,7 +181,7 @@ for filepath in manifest.get('files', []):
     if filepath == 'agent.md':
         local_path = f'.claude/agents/{template_id}.md'
     else:
-        local_path = f'{template_id}/{filepath}'
+        local_path = f'.datagen/{template_id}/{filepath}'
 
     os.makedirs(os.path.dirname(local_path), exist_ok=True)
 
@@ -194,30 +194,29 @@ for filepath in manifest.get('files', []):
 # Also download manifest.json itself
 urllib.request.urlretrieve(
     f'{repo_base}/{template_path}/manifest.json',
-    f'{template_id}/manifest.json'
+    f'.datagen/{template_id}/manifest.json'
 )
-print(f'  OK  {template_id}/manifest.json')
+print(f'  OK  .datagen/{template_id}/manifest.json')
 
 # Create tmp/.gitkeep
-open(f'{template_id}/tmp/.gitkeep', 'w').close()
-print(f'  OK  {template_id}/tmp/.gitkeep')
+open(f'.datagen/{template_id}/tmp/.gitkeep', 'w').close()
+print(f'  OK  .datagen/{template_id}/tmp/.gitkeep')
 print(f'\nDownloaded {len(manifest.get(\"files\", []))} files.')
 "
 ```
 
 Replace `TEMPLATE_ID` and `TEMPLATE_PATH_FROM_INDEX` with actual values from step 3.
 
-### 6. Update agent.md paths
+### 6. Update agent.md paths (if needed)
 
-The installed agent.md uses relative paths. Update them to point to the correct location:
+Templates that already use `.datagen/TEMPLATE_ID/...` paths in their agent.md do NOT need path rewriting -- they work as-is after install.
 
-Read the installed `.claude/agents/TEMPLATE_ID.md` and replace relative paths:
-- `scripts/` -> `TEMPLATE_ID/scripts/`
-- `context/` -> `TEMPLATE_ID/context/`
-- `learnings/` -> `TEMPLATE_ID/learnings/`
-- `tmp/` -> `TEMPLATE_ID/tmp/`
-- `@context/` -> `@TEMPLATE_ID/context/`
-- `@learnings/` -> `@TEMPLATE_ID/learnings/`
+Only rewrite paths if the agent.md still uses bare relative paths (e.g. `scripts/`, `context/`). In that case, read `.claude/agents/TEMPLATE_ID.md` and replace:
+- `scripts/` -> `.datagen/TEMPLATE_ID/scripts/`
+- `context/` -> `.datagen/TEMPLATE_ID/context/`
+- `learnings/` -> `.datagen/TEMPLATE_ID/learnings/`
+- `tmp/` -> `.datagen/TEMPLATE_ID/tmp/`
+- `templates/` -> `.datagen/TEMPLATE_ID/templates/`
 
 ### 7. Download shared skills (if any)
 
@@ -265,7 +264,7 @@ else:
 ```bash
 python3 -c "
 import json
-with open('TEMPLATE_ID/manifest.json') as f:
+with open('.datagen/TEMPLATE_ID/manifest.json') as f:
     manifest = json.load(f)
 pkgs = manifest['requirements'].get('python_packages', [])
 if pkgs:
@@ -282,7 +281,7 @@ Run the printed pip install command.
 Display the template's README.md as a post-install summary:
 
 ```bash
-cat TEMPLATE_ID/README.md
+cat .datagen/TEMPLATE_ID/README.md
 ```
 
 Then tell the user how to invoke the agent:

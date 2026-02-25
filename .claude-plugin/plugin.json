@@ -4,7 +4,7 @@
   "description": "DataGen - 50+ MCP tools for AI agent workflows. Connect services, execute tools, deploy agents.",
   "author": { "name": "DataGen" },
   "homepage": "https://datagen.dev",
-  "repository": "https://github.com/datagen-dev/datagen-plugin",
+  "repository": "https://github.com/datagendev/datagen-plugin",
   "skills": [
     "./skills/setup",
     "./skills/add-mcps",
@@ -13,6 +13,7 @@
     "./skills/build-agent",
     "./skills/deploy-agent",
     "./skills/manage-agents",
-    "./skills/fetch-agent"
+    "./skills/fetch-agent",
+    "./skills/fetch-skill"
   ]
 }

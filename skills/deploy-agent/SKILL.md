@@ -192,57 +192,110 @@ After creating, re-run step 2 to scan for dependencies.
 
 ### 7. Connect GitHub repo (if needed)
 
-a. Login to DataGen CLI:
+**7a. Ensure the repo exists on GitHub**
+
+Check if the current project is a git repo with a remote:
 ```bash
-datagen login
+git remote -v
 ```
 
-b. Connect GitHub (if not already):
+If no remote or no GitHub repo exists:
+- Initialize git if needed: `git init`
+- Create the repo: `gh repo create <org>/<repo-name> --private --source=. --push`
+- If the remote already exists but hasn't been pushed: `git push -u origin main`
+
+**7b. Check if the GitHub App has access to this repo**
+
+```bash
+datagen github repos
+```
+
+If the repo is NOT listed, the DataGen GitHub App doesn't have access yet. Run:
 ```bash
 datagen github connect
 ```
-
-c. Add the repo:
+This opens the browser to the GitHub App installation settings where the user can add the new repo to the app's repository access. Wait for the user to confirm they've added it, then verify:
 ```bash
-datagen github repos add
+datagen github repos
 ```
 
-d. Sync to discover agents:
+**7c. Connect the repo to DataGen**
+
+Once the repo appears in `datagen github repos`, connect it:
 ```bash
-datagen github repos sync
+datagen github connect-repo <owner/repo>
 ```
+
+This scans `.claude/agents/*.md` and discovers agent definitions. If it returns "already connected", that's fine -- proceed.
+
+**7d. Verify agent discovery**
+
+```bash
+datagen github connected
+```
+
+Check that the repo shows `SYNCED` status and the expected agent count. If the agent count is 0 or wrong, trigger a manual sync:
+```bash
+datagen github sync <repo-id>
+```
+
+**7e. Confirm the agent is listed**
+
+```bash
+datagen agents list --repo <owner/repo>
+```
+
+This shows the agent ID needed for deployment in the next step.
 
 ### 8. Deploy the agent
 
+Use the agent ID from step 7e:
+
 ```bash
-datagen agents deploy <agent-name>
+datagen agents deploy <agent-id>
 ```
 
-Configure deployment options:
-- PR mode: `datagen agents config <agent-name> --pr-mode create_pr|auto_merge|skip`
-- Secrets: For each secret from step 2, attach it to the agent:
-  ```bash
-  datagen agents config <agent-name> --add-secret SECRET_NAME
-  ```
+This creates a webhook endpoint and returns the webhook URL.
+
+Then configure the agent with secrets discovered in step 2 (comma-separated):
+```bash
+datagen agents config <agent-id> --secrets "DATAGEN_API_KEY,CLAUDE_CODE_OAUTH_TOKEN"
+```
+
+Optionally set PR mode:
+```bash
+datagen agents config <agent-id> --pr-mode create_pr|auto_merge|skip
+```
 
 ### 9. Set up trigger
 
+Ask the user how they want to trigger the agent. Use `AskUserQuestion` with options:
+- **Daily schedule** -- runs on a cron schedule (e.g., every weekday at 9am)
+- **Webhook only** -- triggered via HTTP POST to the webhook URL
+- **Both** -- scheduled + can also be triggered manually via webhook
+
 For scheduled execution:
 ```bash
-datagen agents schedule <agent-name> --cron "0 9 * * 1-5"
+datagen agents schedule <agent-id> --cron "0 9 * * 1-5" --timezone "America/Chicago" --name "descriptive name"
 ```
 
-For webhook trigger, the deploy command will output the webhook URL.
+Common cron patterns:
+- `0 9 * * 1-5` -- weekdays at 9am
+- `0 9 * * *` -- every day at 9am
+- `0 */6 * * *` -- every 6 hours
+- `0 9 * * 1` -- every Monday at 9am
+
+For webhook trigger, the deploy command in step 8 already output the webhook URL.
 
 ### 10. Test the deployment
 
 ```bash
-datagen agents run <agent-name>
+datagen agents run <agent-id>
 ```
 
 Check logs:
 ```bash
-datagen agents logs <agent-name>
+datagen agents logs <agent-id>
 ```
 
 ### 11. Verify and share

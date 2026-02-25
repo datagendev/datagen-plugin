@@ -4,23 +4,19 @@ A Claude Code plugin that gives you 50+ MCP tools for AI agent workflows -- buil
 
 ## Install
 
-Inside Claude Code, run:
+From your terminal:
+
+```bash
+claude plugin marketplace add datagendev/datagen-plugin
+claude plugin install datagen --scope project
+```
+
+Or from inside Claude Code:
 
 ```
 /plugin marketplace add datagendev/datagen-plugin
+/plugin install datagen --scope project
 ```
-
-Then open the plugin browser and install:
-
-```
-/plugin
-```
-
-Navigate to the **Discover** tab, find **datagen**, and press Enter. Choose your installation scope:
-
-- **User** (default) -- available across all your projects
-- **Project** -- shared with collaborators via version control
-- **Local** -- just for you in this repo only
 
 ## Setup
 
@@ -101,7 +97,7 @@ The plugin supports a full agent lifecycle:
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) version 1.0.33 or later (`claude --version` to check)
 - A DataGen account ([datagen.dev](https://datagen.dev))
 
 ## Links

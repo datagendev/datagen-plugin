@@ -278,19 +278,30 @@ Run the printed pip install command.
 
 ### 10. Show post-install guide
 
-Display the template's README.md as a post-install summary:
+Read the template's README.md to understand what the agent does:
 
 ```bash
 cat .datagen/TEMPLATE_ID/README.md
 ```
 
-Then tell the user how to invoke the agent:
+Then display an **Install Summary** that includes:
+
+1. **What this agent does** -- a brief 2-3 sentence explanation based on the README and the agent's description from agents.json. Explain the workflow in plain language (e.g., "This agent fetches data from X, processes it, and delivers Y").
+2. **Files installed** -- list the key paths (`.claude/agents/TEMPLATE_ID.md`, `.datagen/TEMPLATE_ID/`)
+3. **Prerequisites status** -- which secrets and MCPs are ready vs missing
+4. **How to invoke**:
 
 ```
-Agent installed. To run it:
-  @TEMPLATE_ID run the full pipeline
+To run it:
+  @TEMPLATE_ID <describe what you want>
 
-Or invoke a specific step:
-  @TEMPLATE_ID just pull new posts
-  @TEMPLATE_ID enrich pending contacts
+Examples:
+  @TEMPLATE_ID run the full pipeline
+  @TEMPLATE_ID just do step 1
+```
+
+5. **Reload reminder** -- Always end with:
+
+```
+IMPORTANT: Run `claude -r` to reload and pick up the new agent.
 ```

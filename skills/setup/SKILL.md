@@ -37,10 +37,20 @@ You MUST execute every step below, even if authentication is already configured.
 First, check if DataGen is already configured:
 
 ```bash
-echo $DATAGEN_API_KEY
+python3 -c "
+import os
+key = os.environ.get('DATAGEN_API_KEY', '')
+if key:
+    prefix = key[:4]
+    suffix = key[-4:] if len(key) > 8 else ''
+    masked = prefix + '-' + '*' * max(len(key) - 8, 4) + '-' + suffix if suffix else prefix + '-' + '*' * 4
+    print(masked)
+else:
+    print('(not set)')
+"
 ```
 
-If the environment variable is set, verify the MCP connection works by calling the `searchTools` DataGen MCP tool with query "test". If it works, tell the user authentication and MCP are already configured, then **skip to step 7** (do NOT stop here).
+If the output shows a masked key (e.g. `JSK-****-ab12`), the variable is set. Verify the MCP connection works by calling the `searchTools` DataGen MCP tool with query "test". If it works, tell the user authentication and MCP are already configured, then **skip to step 7** (do NOT stop here).
 
 If the variable is set but tools don't work, proceed to step 2 to reconfigure.
 

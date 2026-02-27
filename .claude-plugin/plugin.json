@@ -1,6 +1,6 @@
 {
   "name": "datagen",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "DataGen - 50+ MCP tools for AI agent workflows. Connect services, execute tools, deploy agents.",
   "author": { "name": "DataGen" },
   "homepage": "https://datagen.dev",

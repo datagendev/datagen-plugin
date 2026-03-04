@@ -28,10 +28,22 @@ Apply rules from @.datagen/agent/<agent-name>/context/criteria.md.
 Use the data model in @.datagen/agent/<agent-name>/context/data-model.md.
 Watch for issues in @.datagen/agent/<agent-name>/context/domain-context.md.
 
-## Memory
-Load cross-run state from @.datagen/agent/<agent-name>/memory/*.md.
+## Memory (tier-specific -- use only the block matching this agent's tier)
+
+<!-- Tier 1: Simple -->
+Load state from @.datagen/agent/<agent-name>/memory/STATE.md at the start of each run.
+Check user preferences in @.datagen/agent/<agent-name>/memory/preferences.md before making decisions.
+
+<!-- Tier 2: Structured -->
+Load agent profile from @.datagen/agent/<agent-name>/memory/PROFILE.md.
+Load state from @.datagen/agent/<agent-name>/memory/STATE.md.
+Load pipeline state from @.datagen/agent/<agent-name>/memory/PIPELINE.md.
 Check user preferences in @.datagen/agent/<agent-name>/memory/preferences.md before making decisions.
 Check feedback learnings in @.datagen/agent/<agent-name>/memory/feedback_learnings.md before filtering steps.
+Load entity files from @.datagen/agent/<agent-name>/memory/entities/ on demand (don't load all at once).
+
+<!-- Tier 3: Event-sourced (same as Tier 2, plus:) -->
+Check idempotency state: read last key from @.datagen/agent/<agent-name>/memory/EVENTS.log before processing.
 
 ## Steps
 
@@ -58,12 +70,101 @@ Check feedback learnings in @.datagen/agent/<agent-name>/memory/feedback_learnin
 2. Run: `python3 .datagen/agent/<agent-name>/scripts/export.py --target <destination>`
 3. Verify results and write summary
 
-### Step N: <write memory>
+### Step N: <write memory> (tier-specific -- use matching block)
+
+<!-- Tier 1: Simple -->
+1. Ask: "Any corrections or preferences to note?"
+2. Update @.datagen/agent/<agent-name>/memory/STATE.md with run counters and outcome
+3. Append session log to @.datagen/agent/<agent-name>/memory/JOURNAL/
+
+<!-- Tier 2: Structured -->
 1. Ask: "Any corrections or preferences to note?"
 2. If feedback provided, run: `python3 .datagen/agent/<agent-name>/scripts/apply_feedback.py`
-3. Run: `python3 .datagen/agent/<agent-name>/scripts/write_memory.py` to update L1 (and L2 if configured)
-4. Verify memory files were updated
+3. Update @.datagen/agent/<agent-name>/memory/STATE.md with run counters and outcome
+4. Update @.datagen/agent/<agent-name>/memory/PIPELINE.md with current stage positions
+5. Update entity files in @.datagen/agent/<agent-name>/memory/entities/ for changed entities
+6. Append events to @.datagen/agent/<agent-name>/memory/EVENTS.log
+7. Append session log to @.datagen/agent/<agent-name>/memory/JOURNAL/
+8. Check if rollup threshold reached (if configured in PROFILE.md)
+
+<!-- Tier 3: Event-sourced (same as Tier 2, plus:) -->
+9. Verify idempotency: check all events have unique keys before appending
+10. Run mandatory rollup if threshold met
 ```
+
+## 6b2. Configure memory hooks in `.claude/settings.json`
+
+Wire the memory lifecycle scripts (from Phase 5) to Claude Code events via `.claude/settings.json`. This is the default approach -- hooks are always active and work across all sessions.
+
+**Hook mapping by tier:**
+
+| Memory hook | Claude Code event | Script |
+|-------------|------------------|--------|
+| **recall** | `SessionStart` | `python3 .datagen/agent/<agent-name>/scripts/memory_recall.py` |
+| **flush** | `Stop` | `python3 .datagen/agent/<agent-name>/scripts/memory_flush.py` |
+| **lock** (T2+) | `PreToolUse` matcher `Edit\|Write` | Advisory warning if target is in `memory/entities/` |
+| **event log** (T2+) | `PostToolUse` matcher on relevant tools | Appends to `EVENTS.log` |
+| **rollup** (T3) | `Stop` | Checks run count, summarizes if threshold met |
+
+**Tier 1 settings.json hooks:**
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_recall.py" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_flush.py" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Tier 2+ additions** (merge into the same settings.json):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_recall.py" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_flush.py" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_lock_check.py \"$TOOL_INPUT\"" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Add these hooks to the project-level `.claude/settings.json` so they apply to all sessions in this project. The scripts themselves are tier-specific (built in Phase 5).
 
 ## 6c. Ensure the agent reasons between steps
 

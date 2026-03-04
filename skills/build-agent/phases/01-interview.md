@@ -100,20 +100,64 @@ Understand how the user will correct and improve the agent over time. This is cr
 
 Save feedback design notes -- they'll feed into Phase 2 (memory files) and Phase 3 (feedback DB table if needed).
 
+## 1d2. Memory tier classification
+
+Before creating directories, classify the agent's memory architecture. Present via `AskUserQuestion`:
+
+```
+AskUserQuestion:
+  question: "Which memory tier fits this agent?"
+  header: "Memory tier"
+  options:
+    - label: "Tier 1 -- Simple (Recommended for most agents)"
+      description: "State container. For to-do agents, single-entity trackers, linear batch processors. Memory = preferences + aggregate state. Example: daily report generator, simple list manager."
+    - label: "Tier 2 -- Structured"
+      description: "Coordination layer. For CRM pipelines, multi-entity agents, agents syncing with external systems. Memory = per-entity tracking, decision audit trail, event log. Example: lead enrichment pipeline, account monitoring agent."
+    - label: "Tier 3 -- Event-sourced"
+      description: "High-concurrency coordination. For agents with parallel runs, multiple writers, or compliance requirements. Same as Tier 2 plus idempotency, conflict resolution, mandatory rollup. Example: real-time lead routing, multi-source data sync. (Advanced -- uncommon for local agents.)"
+```
+
+Use this reference table to help the user self-assess:
+
+| | Tier 1 | Tier 2 | Tier 3 |
+|---|---|---|---|
+| Entities | 1 type, simple | 2+ types, branching lifecycle | Many, concurrent transitions |
+| External sync | No | Yes | Multiple writers |
+| Runs | Sequential | Batch with overlap | Parallel |
+
+Save the chosen tier -- it determines directory structure (1e), memory templates (Phase 2), DB heuristics (Phase 3), hook scripts (Phase 5), and agent loading patterns (Phase 6).
+
 ## 1e. Organize the context layer
 
 ```bash
-mkdir -p .datagen/agent/<agent-name>/{context,memory,tmp,scripts,learnings,data}
+# Base directories (all tiers)
+mkdir -p .datagen/agent/<agent-name>/{context,memory,memory/JOURNAL,tmp,scripts,learnings,data}
+
+# Tier 2+ additions
+mkdir -p .datagen/agent/<agent-name>/memory/entities
 ```
 
-Create files based on interview answers:
+Create directories and placeholder files based on the memory tier from 1d2:
 
+**All tiers:**
 | File | Content | From |
 |------|---------|------|
 | `context/output-template.md` | Example of ideal output | 1a |
 | `context/criteria.md` | Decision rules, scoring, filtering logic | 1a |
 | `context/domain-context.md` | Background knowledge, glossaries, edge cases | 1c |
+| `memory/STATE.md` | Aggregate state (last run, counters) | 1d2 |
 | `memory/preferences.md` | User rules and preferences | 1c |
+| `memory/JOURNAL/` | Append-only session logs | 1d2 |
+
+**Tier 2+ additions:**
+| File | Content | From |
+|------|---------|------|
+| `memory/PROFILE.md` | Agent identity, sync direction, dedup strategy | 1d2 |
+| `memory/PIPELINE.md` | Workflow stage tracking, active/blocked items | 1d2 |
+| `memory/DECISIONS.md` | Decision audit trail (date, entity, decision, rationale) | 1d2 |
+| `memory/feedback_learnings.md` | Skip patterns, quality signals | 1d |
+| `memory/entities/` | Per-entity state files | 1d2 |
+| `memory/EVENTS.log` | Append-only event log | 1d2 |
 
 All paths above are relative to `.datagen/agent/<agent-name>/`. These are placeholders -- Phase 2 will draft the actual file contents from interview answers and get user approval before saving.
 
@@ -148,10 +192,22 @@ All under `.datagen/agent/<agent-name>/`:
 - `context/domain-context.md` -- <what knowledge>
 - <any reference lists from 1c>
 
-### Memory & persistence
-All under `.datagen/agent/<agent-name>/`:
+### Memory tier
+**Classification**: <Tier 1 / Tier 2 / Tier 3> -- <rationale from 1d2>
+
+**Memory files** (all under `.datagen/agent/<agent-name>/`):
+- `memory/STATE.md` -- <what aggregate state to track>
 - `memory/preferences.md` -- <what preferences from 1c>
+- `memory/JOURNAL/` -- session logs
+<!-- Tier 2+ only: -->
+- `memory/PROFILE.md` -- <agent identity, sync direction>
+- `memory/PIPELINE.md` -- <workflow stages>
+- `memory/DECISIONS.md` -- <audit trail>
 - `memory/feedback_learnings.md` -- <skip patterns, quality signals>
+- `memory/entities/` -- <per-entity state>
+- `memory/EVENTS.log` -- <event log>
+
+### Structured storage
 - **DB tables** (if needed): <entity table, feedback audit table from 1b/1d>
 
 ### Feedback loop

@@ -64,12 +64,21 @@ All agent workspace files live under `.datagen/agent/<agent-name>/`. Determine t
 
 ```
 .datagen/agent/<agent-name>/
-├── context/       # domain knowledge, criteria, templates (Phase 2)
-├── memory/        # cross-run state, preferences, feedback learnings (Phase 2)
-├── tmp/           # ephemeral in-run data, discarded between runs (Phase 5)
-├── scripts/       # helper scripts the agent calls (Phase 5)
-├── learnings/     # accumulated failure patterns and fixes (Phase 6)
-└── data/          # local DB files if using SQLite (Phase 3)
+├── context/                    # domain knowledge, criteria, templates (Phase 2)
+├── memory/
+│   ├── STATE.md                # [all tiers] aggregate state (last run, counters)
+│   ├── preferences.md          # [all tiers] user rules and preferences
+│   ├── JOURNAL/                # [all tiers] append-only session logs
+│   ├── PROFILE.md              # [tier 2+] agent identity, sync direction, dedup strategy
+│   ├── PIPELINE.md             # [tier 2+] workflow stage tracking
+│   ├── DECISIONS.md            # [tier 2+] decision audit trail
+│   ├── feedback_learnings.md   # [tier 2+] skip patterns, quality signals
+│   ├── entities/               # [tier 2+] per-entity state files
+│   └── EVENTS.log              # [tier 2+] append-only event log
+├── tmp/                        # ephemeral in-run data, discarded between runs (Phase 5)
+├── scripts/                    # helper scripts the agent calls (Phase 5)
+├── learnings/                  # accumulated failure patterns and fixes (Phase 6)
+└── data/                       # local DB files if using SQLite (Phase 3)
 ```
 
 The agent definition itself lives at `.claude/agents/<agent-name>.md` and references workspace files via `@.datagen/agent/<agent-name>/context/...` etc.
@@ -98,7 +107,7 @@ Understand the job through four focused conversations: intent, data model, conte
 
 Turn interview answers into actual files the agent will read. Draft each file, present to the user, iterate until approved.
 
-**Key outputs:** `context/` files (goal, criteria, output template, domain context) and `memory/` files (preferences, feedback learnings).
+**Key outputs:** `context/` files (goal, criteria, output template, domain context) and tier-appropriate `memory/` files (STATE, preferences, JOURNAL for all tiers; PROFILE, PIPELINE, DECISIONS, entities, EVENTS for tier 2+).
 
 **Checkpoint:** List all created files. Do NOT proceed until approved.
 
@@ -153,7 +162,7 @@ Write the agent `.md` file that orchestrates everything. The agent reasons betwe
 5. **Validate with hooks, not hope** -- define expected output schemas per step
 6. **The real product is encoded expertise** -- context files are the differentiator
 7. **Compose skills inside agents** -- break complex capabilities into reusable skills in `.claude/skills/`
-8. **Memory is a first-class concern** -- decide what persists before prototyping. Ephemeral state lives in `tmp/`, persistent state lives in `memory/` (L1) and DB (L2). All under `.datagen/agent/<agent-name>/`
+8. **Memory is a first-class concern** -- classify the agent's memory tier (simple, structured, event-sourced) during the interview. The tier determines directory structure, file templates, hook scripts, and agent loading patterns. Ephemeral state lives in `tmp/`, persistent state lives in `memory/` (L1) and DB (L2). All under `.datagen/agent/<agent-name>/`
 
 ## Next steps
 

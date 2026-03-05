@@ -94,19 +94,24 @@ Check idempotency state: read last key from @.datagen/agent/<agent-name>/memory/
 
 ## 6b2. Configure memory hooks in `.claude/settings.json`
 
-Wire the memory lifecycle scripts (from Phase 5) to Claude Code events via `.claude/settings.json`. This is the default approach -- hooks are always active and work across all sessions.
+Wire the memory lifecycle to Claude Code events via `.claude/settings.json`. Three hooks work together:
+
+1. **recall** (SessionStart, command) -- prints `SUMMARY.md` for instant context
+2. **flush** (Stop, command) -- updates STATE.md, appends JOURNAL entry
+3. **summarize** (Stop, agent) -- reads all memory files, writes compact `SUMMARY.md`
+
+The flush command hook runs first, then the agent hook summarizes the updated state.
 
 **Hook mapping by tier:**
 
-| Memory hook | Claude Code event | Script |
-|-------------|------------------|--------|
-| **recall** | `SessionStart` | `python3 .datagen/agent/<agent-name>/scripts/memory_recall.py` |
-| **flush** | `Stop` | `python3 .datagen/agent/<agent-name>/scripts/memory_flush.py` |
-| **lock** (T2+) | `PreToolUse` matcher `Edit\|Write` | Advisory warning if target is in `memory/entities/` |
-| **event log** (T2+) | `PostToolUse` matcher on relevant tools | Appends to `EVENTS.log` |
-| **rollup** (T3) | `Stop` | Checks run count, summarizes if threshold met |
+| Memory hook | Event | Type | All tiers | Tier 2+ additions |
+|-------------|-------|------|-----------|-------------------|
+| **recall** | `SessionStart` | `command` | `cat memory/SUMMARY.md` | Same |
+| **flush** | `Stop` | `command` | Update STATE, append JOURNAL | + PIPELINE, entities, EVENTS |
+| **summarize** | `Stop` | `agent` | Write SUMMARY.md (<10 lines) | + include PIPELINE/entity stats |
+| **lock** | `PreToolUse` | `command` | -- | Advisory warning on entities/ |
 
-**Tier 1 settings.json hooks:**
+**All tiers -- settings.json:**
 
 ```json
 {
@@ -115,7 +120,11 @@ Wire the memory lifecycle scripts (from Phase 5) to Claude Code events via `.cla
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_recall.py" }
+          {
+            "type": "command",
+            "command": "cat \"$CLAUDE_PROJECT_DIR\"/.datagen/agent/<agent-name>/memory/SUMMARY.md 2>/dev/null || echo '<agent-name>: no summary yet'",
+            "timeout": 5
+          }
         ]
       }
     ],
@@ -123,7 +132,16 @@ Wire the memory lifecycle scripts (from Phase 5) to Claude Code events via `.cla
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_flush.py" }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.datagen/agent/<agent-name>/scripts/memory_flush.py",
+            "timeout": 10
+          },
+          {
+            "type": "agent",
+            "prompt": "Read all memory files in .datagen/agent/<agent-name>/memory/ (STATE.md, preferences.md, feedback_learnings.md, and the latest 3 JOURNAL entries if any). Write a compact summary to .datagen/agent/<agent-name>/memory/SUMMARY.md. The summary MUST be under 10 lines. Include: last run date, key counters, scoring weights (one line), active learnings count, and a one-line note on the most recent session. Do not include full file contents. If memory files are empty or have no real data yet, write a 3-line summary saying so. Write the file and stop.",
+            "timeout": 30
+          }
         ]
       }
     ]
@@ -136,27 +154,14 @@ Wire the memory lifecycle scripts (from Phase 5) to Claude Code events via `.cla
 ```json
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_recall.py" }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_flush.py" }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": "python3 .datagen/agent/<agent-name>/scripts/memory_lock_check.py \"$TOOL_INPUT\"" }
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.datagen/agent/<agent-name>/scripts/memory_lock_check.py \"$TOOL_INPUT\""
+          }
         ]
       }
     ]
@@ -164,7 +169,13 @@ Wire the memory lifecycle scripts (from Phase 5) to Claude Code events via `.cla
 }
 ```
 
-Add these hooks to the project-level `.claude/settings.json` so they apply to all sessions in this project. The scripts themselves are tier-specific (built in Phase 5).
+**Key design decisions:**
+- `SessionStart` uses `cat` directly instead of a Python script -- fastest possible recall (<1s)
+- The agent `summarize` hook on `Stop` adds latency (~10-30s) but only fires when the agent finishes its last response
+- `$CLAUDE_PROJECT_DIR` ensures paths resolve regardless of working directory
+- The flush command hook is listed before the agent hook so STATE.md is updated before the summary is generated
+
+Add these hooks to the project-level `.claude/settings.json` so they apply to all sessions in this project.
 
 ## 6c. Ensure the agent reasons between steps
 

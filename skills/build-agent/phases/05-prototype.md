@@ -133,90 +133,38 @@ After each script runs, read the output file and verify:
 ## 5d. Move to the next step
 
 Once a script works, move to the next step of the workflow. Each script builds on the previous one's output.
-
 ## 5e. Build memory hook scripts
 
-Build the memory lifecycle scripts that Claude Code hooks will call. These follow the same SDK patterns as other Phase 5 scripts. Create them based on the agent's memory tier from Phase 1 (1d2).
+Build the memory lifecycle scripts that Claude Code hooks will call. The architecture uses three hooks:
 
-### `scripts/memory_recall.py` -- reads tier-appropriate memory files at session start
+1. **recall** (SessionStart, `type: command`) -- just prints `SUMMARY.md`. Fast, no processing.
+2. **flush** (Stop, `type: command`) -- updates STATE.md, appends JOURNAL entry. Data work only.
+3. **summarize** (Stop, `type: agent`) -- reads all memory files, writes compact `SUMMARY.md` (<10 lines). LLM-generated summary for the next session.
 
-**Tier 1:**
+### `scripts/memory_recall.py` -- prints SUMMARY.md (all tiers)
+
+The recall script is intentionally simple. The smart summary work happens in the agent hook on Stop.
 
 ```python
+"""Memory recall -- prints SUMMARY.md if it exists."""
 import os
 
-AGENT_DIR = ".datagen/agent/<agent-name>"
-MEMORY_DIR = f"{AGENT_DIR}/memory"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+AGENT_DIR = os.path.dirname(SCRIPT_DIR)
+SUMMARY_PATH = os.path.join(AGENT_DIR, "memory", "SUMMARY.md")
 
-def recall():
-    """Read memory files and print summary for Claude to see."""
-    # Read STATE.md
-    state_path = f"{MEMORY_DIR}/STATE.md"
-    if os.path.exists(state_path):
-        with open(state_path) as f:
-            print("=== STATE ===")
-            print(f.read())
-
-    # Read preferences
-    prefs_path = f"{MEMORY_DIR}/preferences.md"
-    if os.path.exists(prefs_path):
-        with open(prefs_path) as f:
-            print("=== PREFERENCES ===")
-            print(f.read())
-
-if __name__ == "__main__":
-    recall()
+if os.path.exists(SUMMARY_PATH):
+    with open(SUMMARY_PATH) as f:
+        print(f.read().strip())
+else:
+    print("<agent-name>: no summary yet")
 ```
 
-**Tier 2 (extends Tier 1):**
+**Important:** Use `__file__`-based absolute paths, not relative paths. Hooks may run from any working directory.
 
-```python
-import os, glob
+### `scripts/memory_flush.py` -- updates state files (tier-specific)
 
-AGENT_DIR = ".datagen/agent/<agent-name>"
-MEMORY_DIR = f"{AGENT_DIR}/memory"
-
-def recall():
-    """Read memory files and print summary for Claude to see."""
-    # Core files to always load
-    for name, label in [
-        ("PROFILE.md", "PROFILE"),
-        ("STATE.md", "STATE"),
-        ("PIPELINE.md", "PIPELINE"),
-        ("preferences.md", "PREFERENCES"),
-        ("feedback_learnings.md", "FEEDBACK LEARNINGS"),
-    ]:
-        path = f"{MEMORY_DIR}/{name}"
-        if os.path.exists(path):
-            with open(path) as f:
-                print(f"=== {label} ===")
-                print(f.read())
-
-    # List entities (lazy -- just show what's available, don't load all)
-    entity_files = glob.glob(f"{MEMORY_DIR}/entities/*.md")
-    if entity_files:
-        print(f"=== ENTITIES ({len(entity_files)} files) ===")
-        for ef in sorted(entity_files)[:10]:
-            print(f"  - {os.path.basename(ef)}")
-        if len(entity_files) > 10:
-            print(f"  ... and {len(entity_files) - 10} more")
-
-    # Show recent events (last 20 lines)
-    events_path = f"{MEMORY_DIR}/EVENTS.log"
-    if os.path.exists(events_path):
-        with open(events_path) as f:
-            lines = f.readlines()
-            print(f"=== RECENT EVENTS (last 20 of {len(lines)}) ===")
-            for line in lines[-20:]:
-                print(line.rstrip())
-
-if __name__ == "__main__":
-    recall()
-```
-
-**Tier 3:** Same as Tier 2 plus idempotency state check -- read last idempotency key from `EVENTS.log` and print it so the agent can continue the sequence.
-
-### `scripts/memory_flush.py` -- updates tier-appropriate memory files at session end
+The flush script handles data persistence. It runs as a command hook on Stop, before the agent summarize hook.
 
 **Tier 1:**
 
@@ -224,95 +172,66 @@ if __name__ == "__main__":
 import os
 from datetime import datetime
 
-AGENT_DIR = ".datagen/agent/<agent-name>"
-MEMORY_DIR = f"{AGENT_DIR}/memory"
-JOURNAL_DIR = f"{MEMORY_DIR}/JOURNAL"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+AGENT_DIR = os.path.dirname(SCRIPT_DIR)
+MEMORY_DIR = os.path.join(AGENT_DIR, "memory")
+TMP_DIR = os.path.join(AGENT_DIR, "tmp")
+JOURNAL_DIR = os.path.join(MEMORY_DIR, "JOURNAL")
 
-def flush(summary: str = "", items_processed: int = 0):
-    """Update STATE.md and append JOURNAL entry."""
+
+def has_recent_run():
+    """Only flush if tmp/ has files modified in the last 2 hours."""
+    if not os.path.isdir(TMP_DIR):
+        return False
+    now = datetime.now().timestamp()
+    for f in os.listdir(TMP_DIR):
+        path = os.path.join(TMP_DIR, f)
+        if os.path.isfile(path) and (now - os.path.getmtime(path)) < 7200:
+            return True
+    return False
+
+
+def flush():
+    if not has_recent_run():
+        return
+
     os.makedirs(JOURNAL_DIR, exist_ok=True)
     now = datetime.now()
 
     # Update STATE.md
-    state_path = f"{MEMORY_DIR}/STATE.md"
+    state_path = os.path.join(MEMORY_DIR, "STATE.md")
     with open(state_path, "w") as f:
-        f.write(f"# State\n\n")
-        f.write(f"## Last run\n")
+        f.write("# State\n\n")
+        f.write("## Last run\n")
         f.write(f"- Date: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"- Items processed: {items_processed}\n")
-        f.write(f"- Outcome: {summary or 'completed'}\n")
+        f.write(f"- Items processed: 0\n")
+        f.write(f"- Outcome: completed\n")
 
     # Append JOURNAL entry
-    journal_file = f"{JOURNAL_DIR}/{now.strftime('%Y-%m-%d_%H%M%S')}.md"
+    journal_file = os.path.join(JOURNAL_DIR, f"{now.strftime('%Y-%m-%d_%H%M%S')}.md")
     with open(journal_file, "w") as f:
         f.write(f"# Session: {now.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        f.write(f"## Summary\n{summary}\n\n")
-        f.write(f"## Items processed: {items_processed}\n")
+        f.write(f"## Summary\ncompleted\n")
 
-    print(f"Memory flushed: STATE updated, journal entry at {os.path.basename(journal_file)}")
+    print(f"Memory flushed: STATE + JOURNAL")
+
 
 if __name__ == "__main__":
     flush()
 ```
 
-**Tier 2 (extends Tier 1):**
+**Tier 2 (extends Tier 1):** Same structure but also updates `PIPELINE.md`, entity files in `entities/`, and appends to `EVENTS.log`. Adapt the `get_run_stats()` function to read from your agent's specific tmp output files.
 
-```python
-import os
-from datetime import datetime
+**Tier 3:** Same as Tier 2 plus idempotency key generation and mandatory rollup check.
 
-AGENT_DIR = ".datagen/agent/<agent-name>"
-MEMORY_DIR = f"{AGENT_DIR}/memory"
-JOURNAL_DIR = f"{MEMORY_DIR}/JOURNAL"
+**Key rules for all flush scripts:**
+- Use `__file__`-based absolute paths
+- Guard with `has_recent_run()` so non-agent sessions don't write empty state
+- Keep it fast -- this runs on every Stop event
 
-def flush(summary="", items_processed=0, pipeline_state=None, events=None):
-    """Update all state files and append EVENTS + JOURNAL."""
-    os.makedirs(JOURNAL_DIR, exist_ok=True)
-    now = datetime.now()
+### Summarize hook (agent, configured in settings.json)
 
-    # Update STATE.md (same as T1)
-    state_path = f"{MEMORY_DIR}/STATE.md"
-    with open(state_path, "w") as f:
-        f.write(f"# State\n\n## Last run\n")
-        f.write(f"- Date: {now.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"- Items processed: {items_processed}\n")
-        f.write(f"- Outcome: {summary or 'completed'}\n")
-
-    # Update PIPELINE.md if state provided
-    if pipeline_state:
-        pipeline_path = f"{MEMORY_DIR}/PIPELINE.md"
-        with open(pipeline_path, "w") as f:
-            f.write("# Pipeline State\n\n## Active stages\n")
-            f.write("| Entity ID | Type | Stage | Entered | Blocked by |\n")
-            f.write("|-----------|------|-------|---------|------------|\n")
-            for entry in pipeline_state:
-                f.write(f"| {entry.get('id','')} | {entry.get('type','')} | {entry.get('stage','')} | {entry.get('entered','')} | {entry.get('blocked_by','')} |\n")
-
-    # Append to EVENTS.log
-    if events:
-        events_path = f"{MEMORY_DIR}/EVENTS.log"
-        with open(events_path, "a") as f:
-            for event in events:
-                f.write(f"[{now.isoformat()}] [{event['type']}] {event['entity']}: {event['description']}\n")
-
-    # Append JOURNAL entry
-    journal_file = f"{JOURNAL_DIR}/{now.strftime('%Y-%m-%d_%H%M%S')}.md"
-    with open(journal_file, "w") as f:
-        f.write(f"# Session: {now.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-        f.write(f"## Summary\n{summary}\n\n")
-        f.write(f"## Items processed: {items_processed}\n")
-        if events:
-            f.write(f"\n## Events logged: {len(events)}\n")
-
-    print(f"Memory flushed: STATE, PIPELINE, EVENTS, JOURNAL updated")
-
-if __name__ == "__main__":
-    flush()
-```
-
-**Tier 3:** Same as Tier 2 plus: generate idempotency keys per event (`<agent-name>_<run-id>_<step>_<entity-id>`), dedup check against existing `EVENTS.log` before appending, and mandatory rollup check against threshold in `PROFILE.md`.
-
-Adapt the templates above to the agent's specific entity types and pipeline stages. These scripts are called by Claude Code hooks configured in `.claude/settings.json` (see Phase 6).
+The summarize hook is NOT a script -- it's a `type: agent` hook defined directly in `.claude/settings.json`. The agent subagent reads memory files and writes `SUMMARY.md`. See Phase 6 for the configuration.
 
 **By the end of Phase 5, you should have:**
 - A `.datagen/agent/<agent-name>/scripts/` directory with one script per heavy-lifting task
@@ -321,6 +240,7 @@ Adapt the templates above to the agent's specific entity types and pipeline stag
 - A clear separation: scripts do data work, agent does thinking work
 - **Every multi-item script uses the checkpoint/resume pattern** so it survives failures mid-run
 - **DB dedup logic** so subsequent runs skip already-processed data instead of re-fetching
-- **Memory hook scripts** (`memory_recall.py` and `memory_flush.py`) matching the agent's tier
+- **Memory hook scripts** (`memory_recall.py` and `memory_flush.py`) using absolute paths
+- **No `memory_recall.py` parsing logic** -- recall just prints SUMMARY.md; the agent hook writes the smart summary
 
 > Prototyping captures real tool names, real parameters, and real edge cases. But remember -- these scripts are helpers the agent calls, not an end-to-end pipeline.

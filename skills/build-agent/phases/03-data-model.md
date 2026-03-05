@@ -4,6 +4,12 @@ This phase designs structured persistent data (DB schemas) and maps ephemeral in
 
 ## 3a. Decide if structured storage is needed
 
+**Tier-aware heuristic** -- use the memory tier from Phase 1 (1d2) as a starting point:
+
+- **Tier 1**: DB usually unnecessary. `STATE.md` + `tmp/` suffices for aggregate state and ephemeral processing. Only add a DB if entity count grows unboundedly across runs.
+- **Tier 2**: DB almost always needed. `memory/entities/` handles working memory, but a DB provides dedup, querying, and long-term storage. The entities/ files are a cache layer over the DB.
+- **Tier 3**: DB required. Add an `events` table with an idempotency key `UNIQUE` constraint to prevent duplicate processing under concurrent writes.
+
 Does the agent need to persist entities across runs in a queryable store? Ask:
 
 - Does the entity count grow over time? (new contacts each run, accumulating posts)
@@ -50,6 +56,43 @@ For each table, define:
 - Primary key and unique keys (dedup)
 - Indexes for common queries
 - Status/lifecycle column if the entity has states
+
+### Tier-specific table patterns
+
+**Tier 2: decisions table** -- mirrors `memory/DECISIONS.md` for queryable audit:
+
+```sql
+CREATE TABLE IF NOT EXISTS decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    rationale TEXT,
+    outcome TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_decisions_entity ON decisions(entity_type, entity_id);
+```
+
+**Tier 3: events table** -- with idempotency enforcement for concurrent writes:
+
+```sql
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    idempotency_key TEXT UNIQUE NOT NULL,
+    event_type TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_events_entity ON events(entity_type, entity_id);
+CREATE INDEX idx_events_type ON events(event_type);
+```
+
+Only create tier-specific tables matching the agent's classified tier.
 
 ## 3c. Design ephemeral flow
 
@@ -115,28 +158,19 @@ print("Migration complete")
 
 For hosted databases (Turso, Neon), use the appropriate SDK or CLI. Save the migration script in `.datagen/agent/<agent-name>/scripts/migrate.py` so it can be re-run.
 
-## 3f. Optional: Eviction, write-back, and hooks
+## 3f. Eviction, write-back, and hooks
 
 If the agent runs repeatedly and accumulates entities:
 
 - **Eviction**: entities not seen in N days can be archived or removed from active queries
-- **Write-back script**: `.datagen/agent/<agent-name>/scripts/write_memory.py` that updates both `memory/*.md` (L1) and DB (L2) after each run
-- **Stop hook**: check if memory files were updated during the run (see hook config pattern below)
+- **Write-back**: the `memory_flush.py` script (built in Phase 5) implements the **flush hook** for the agent's tier. It updates both `memory/` files (L1) and DB (L2) after each run.
 
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          { "type": "command", "command": "bash .datagen/agent/<agent-name>/scripts/memory_hook.sh" }
-        ]
-      }
-    ]
-  }
-}
-```
+The flush hook is tier-aware:
+- **Tier 1**: updates `STATE.md`, appends `JOURNAL/` entry
+- **Tier 2**: updates `STATE.md` + `PIPELINE.md` + entity files, appends `EVENTS.log` + `JOURNAL/`, optionally runs rollup
+- **Tier 3**: same as Tier 2 + idempotency key checks, mandatory rollup at defined frequency
+
+These scripts are wired to Claude Code via `.claude/settings.json` hooks (see Phase 5 for script templates and Phase 6 for hook configuration).
 
 Define eviction thresholds and write-back rules in `.datagen/agent/<agent-name>/context/data-model.md`.
 

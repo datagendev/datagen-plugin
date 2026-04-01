@@ -1,17 +1,18 @@
 ---
 name: deploy-agent
-description: Create, deploy, and manage DataGen agents with webhooks and schedules
+description: Create, deploy, and manage DataGen agents, commands, and skills with webhooks and schedules
 user_invocable: true
 ---
 
 # Deploy Agent
 
-Develop an agent definition and deploy it as a webhook-triggered or scheduled automation.
+Develop an agent, command, or skill definition and deploy it as a webhook-triggered or scheduled automation.
 
 ## When to invoke
-- User wants to create, deploy, or manage an agent
+- User wants to create, deploy, or manage an agent, command, or skill
 - User mentions automation, scheduling, webhooks, or deploying
 - User wants to run an agent on a schedule or trigger
+- User wants to deploy a command or skill definition
 
 ## Before starting
 
@@ -47,7 +48,10 @@ For creating + deploying a new agent, also add before step 5:
 
 ### 2. Read the agent file and scan dependencies
 
-Read the agent `.md` file the user wants to deploy. If they haven't specified one, look in `.claude/agents/` and ask which one.
+Read the `.md` file the user wants to deploy. If they haven't specified one, scan all three directories and ask which one:
+- `.claude/agents/<name>.md` (type: AGENT)
+- `.claude/commands/<name>.md` (type: COMMAND)
+- `.claude/skills/<name>/SKILL.md` (type: SKILL)
 
 **2a. Find dependent scripts**
 
@@ -174,11 +178,15 @@ If creating a new agent, ask:
 
 ### 6. Create agent definition (if creating new)
 
-Help the user create an agent markdown file at `.claude/agents/<agent-name>.md`:
+Help the user create the definition file. The file path depends on the type:
+- **Agent:** `.claude/agents/<name>.md`
+- **Command:** `.claude/commands/<name>.md`
+- **Skill:** `.claude/skills/<name>/SKILL.md`
 
+Example agent definition:
 ```markdown
 ---
-name: Agent Name
+name: my-agent
 description: What the agent does
 tools: [tool1, tool2]
 ---
@@ -186,6 +194,29 @@ tools: [tool1, tool2]
 # Agent Instructions
 
 Describe what the agent should do when triggered...
+```
+
+Example command definition:
+```markdown
+---
+name: my-command
+description: What the command does
+---
+
+Run this task with the given input: $ARGUMENTS
+```
+
+Example skill definition:
+```markdown
+---
+name: my-skill
+description: What the skill does
+user_invocable: true
+---
+
+# Skill Instructions
+
+Describe what the skill should do...
 ```
 
 After creating, re-run step 2 to scan for dependencies.
@@ -226,7 +257,7 @@ Once the repo appears in `datagen github repos`, connect it:
 datagen github connect-repo <owner/repo>
 ```
 
-This scans `.claude/agents/*.md` and discovers agent definitions. If it returns "already connected", that's fine -- proceed.
+This scans `.claude/agents/`, `.claude/commands/`, and `.claude/skills/` and discovers deployable definitions. If it returns "already connected", that's fine -- proceed.
 
 **7d. Verify agent discovery**
 
@@ -255,7 +286,18 @@ Use the agent ID from step 7e:
 datagen agents deploy <agent-id>
 ```
 
-This creates a webhook endpoint and returns the webhook URL.
+This creates a webhook endpoint and outputs the webhook URL in the format:
+
+```
+https://api.datagen.dev/api/agent/trigger/{agent-id}
+```
+
+Save this URL -- it's needed to trigger the agent via HTTP POST:
+```bash
+curl -X POST https://api.datagen.dev/api/agent/trigger/{agent-id} \
+  -H 'Content-Type: application/json' \
+  -d '{"message": "Hello"}'
+```
 
 Then configure the agent with secrets discovered in step 2 (comma-separated):
 ```bash
@@ -266,6 +308,30 @@ Optionally set PR mode:
 ```bash
 datagen agents config <agent-id> --pr-mode create_pr|auto_merge|skip
 ```
+
+**Configure the entry prompt:**
+
+The entry prompt is the text passed to `claude -p "..."` when the agent is triggered. DataGen sets a default based on type:
+
+| Type | Default entry prompt |
+|------|---------------------|
+| AGENT | `Please use agent {name} to respond to the incoming payload: {{payload}}` |
+| COMMAND | `/{name} {{payload}}` |
+| SKILL | `/{name} {{payload}}` |
+
+To customize the entry prompt:
+```bash
+datagen agents config <agent-id> --set-prompt "Your custom prompt here: {{payload}}"
+```
+
+To reset to the default:
+```bash
+datagen agents config <agent-id> --clear-prompt
+```
+
+Template variables:
+- `{{payload}}` -- the full webhook/trigger payload as JSON
+- `{{payload.fieldName}}` -- access a specific field from the JSON payload (e.g., `{{payload.domain}}`)
 
 ### 9. Set up trigger
 
@@ -289,17 +355,40 @@ For webhook trigger, the deploy command in step 8 already output the webhook URL
 
 ### 10. Test the deployment
 
+Trigger a test run:
 ```bash
 datagen agents run <agent-id>
 ```
 
-Check logs:
+Or run with a test payload:
+```bash
+datagen agents run <agent-id> --payload '{"test": true}'
+```
+
+Check execution logs:
 ```bash
 datagen agents logs <agent-id>
 ```
 
+Get the full execution output (latest run):
+```bash
+datagen agents output <agent-id>
+```
+
+Get output as raw JSON (useful for piping to other tools):
+```bash
+datagen agents output <agent-id> --json
+```
+
+Get output for a specific execution:
+```bash
+datagen agents output <agent-id> --execution <execution-id>
+```
+
+The `output` command shows: agent name, type, execution ID, status, session ID, timestamps, duration, git branch, PR URL (if applicable), and the full result.
+
 ### 11. Verify and share
 
-- Confirm the agent is running
+- Confirm the agent ran successfully
 - Share the webhook URL if applicable
 - Suggest `/datagen:manage-agents` for ongoing management

@@ -19,16 +19,16 @@ Connect DataGen to Claude Code with zero-copy-paste authentication.
 
 Tasks to create:
 1. Check existing configuration
-2. Authenticate with DataGen (skip if already configured)
-3. Verify MCP connection
-4. Install DataGen CLI
+2. Install DataGen CLI
+3. Authenticate with DataGen (skip if already configured)
+4. Verify MCP connection
 5. Install SDK (Python or TypeScript)
 6. Create .datagen/ context folder
 7. Setup complete -- show summary
 
 ## Important: Always run ALL steps
 
-You MUST execute every step below, even if authentication is already configured. Steps 1-6 handle auth (skippable if working), but steps 7-9 MUST always be checked. Do NOT stop early after verifying auth -- always continue through CLI, SDK, and context folder checks.
+You MUST execute every step below, even if authentication is already configured. Steps 1-7 handle CLI install and auth (skippable if working), but steps 8-9 MUST always be checked. Do NOT stop early after verifying auth -- always continue through SDK and context folder checks.
 
 ## Steps
 
@@ -50,69 +50,11 @@ else:
 "
 ```
 
-If the output shows a masked key (e.g. `JSK-****-ab12`), the variable is set. Verify the MCP connection works by calling the `searchTools` DataGen MCP tool with query "test". If it works, tell the user authentication and MCP are already configured, then **skip to step 7** (do NOT stop here).
+If the output shows a masked key (e.g. `JSK-****-ab12`), the variable is set. Verify the MCP connection works by calling the `searchTools` DataGen MCP tool with query "test". If it works, tell the user authentication and MCP are already configured, then **skip to step 8** (do NOT stop here).
 
 If the variable is set but tools don't work, proceed to step 2 to reconfigure.
 
-### 2. Create auth session
-
-Create a new CLI auth session by calling the DataGen API:
-
-```bash
-curl -s -X POST https://app.datagen.dev/api/cli-auth/session | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['sessionToken'])"
-```
-
-Store the returned `sessionToken`.
-
-### 3. Open browser
-
-Open the authentication page in the user's browser. Do NOT prompt the user -- open automatically:
-
-```bash
-open "https://app.datagen.dev/cli-auth?session=SESSION_TOKEN"
-```
-
-Tell the user: "I've opened your browser. Sign up or log in to generate your API key. I'll detect when you're done."
-
-### 4. Poll for completion
-
-Poll the status endpoint every 3 seconds until completed or expired (max 10 minutes):
-
-```bash
-curl -s "https://app.datagen.dev/api/cli-auth/status?session=SESSION_TOKEN"
-```
-
-Expected responses:
-- `{"status": "pending"}` -- keep polling
-- `{"status": "completed", "api_key": "..."}` -- success, proceed to step 5
-- `{"status": "expired"}` -- session expired, ask user to retry
-
-### 5. Store API key
-
-Once you receive the API key:
-
-a. Add to shell profile:
-```bash
-echo 'export DATAGEN_API_KEY=THE_KEY' >> ~/.zshrc
-export DATAGEN_API_KEY=THE_KEY
-```
-
-b. Configure the MCP server connection:
-```bash
-claude mcp add datagen --transport http https://mcp.datagen.dev/mcp -e DATAGEN_API_KEY
-```
-
-### 6. Verify connection
-
-Test the connection by calling the DataGen MCP `searchTools` tool with query "email".
-
-If it works, confirm setup is complete and suggest next steps:
-- `/datagen:add-mcps` to connect services like Gmail, Slack, Linear
-- `/datagen:build-agent` to build an agent step by step
-- `/datagen:fetch-agent` to get pre-built agents
-- `/datagen:deploy-agent` to deploy your existing agent, skill, or command
-
-### 7. Install DataGen CLI
+### 2. Install DataGen CLI
 
 Check if the CLI is already installed:
 
@@ -138,6 +80,69 @@ datagen --help
 ```
 
 If `which datagen` already succeeds, skip this step and tell the user the CLI is already installed.
+
+### 3. Create auth session
+
+Create a new CLI auth session by calling the DataGen API:
+
+```bash
+curl -s -X POST https://app.datagen.dev/api/cli-auth/session | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['sessionToken'])"
+```
+
+Store the returned `sessionToken`.
+
+### 4. Open browser
+
+Open the authentication page in the user's browser. Do NOT prompt the user -- open automatically:
+
+```bash
+open "https://app.datagen.dev/cli-auth?session=SESSION_TOKEN"
+```
+
+Tell the user: "I've opened your browser. Sign up or log in to generate your API key. I'll detect when you're done."
+
+### 5. Poll for completion
+
+Poll the status endpoint every 3 seconds until completed or expired (max 10 minutes):
+
+```bash
+curl -s "https://app.datagen.dev/api/cli-auth/status?session=SESSION_TOKEN"
+```
+
+Expected responses:
+- `{"status": "pending"}` -- keep polling
+- `{"status": "completed", "api_key": "..."}` -- success, proceed to step 6
+- `{"status": "expired"}` -- session expired, ask user to retry
+
+### 6. Store API key
+
+Once you receive the API key:
+
+a. Add to shell profile:
+```bash
+echo 'export DATAGEN_API_KEY=THE_KEY' >> ~/.zshrc
+export DATAGEN_API_KEY=THE_KEY
+```
+
+b. Configure the MCP server connection using the DataGen CLI:
+```bash
+datagen mcp
+```
+
+If `datagen mcp` fails or the CLI is unavailable, fall back to manual configuration:
+```bash
+claude mcp add datagen --transport http https://mcp.datagen.dev/mcp --header "X-API-Key:${DATAGEN_API_KEY}"
+```
+
+### 7. Verify connection
+
+Test the connection by calling the DataGen MCP `searchTools` tool with query "email".
+
+If it works, confirm setup is complete and suggest next steps:
+- `/datagen:add-mcps` to connect services like Gmail, Slack, Linear
+- `/datagen:build-agent` to build an agent step by step
+- `/datagen:fetch-agent` to get pre-built agents
+- `/datagen:deploy-agent` to deploy your existing agent, skill, or command
 
 ### 8. Install SDK
 
